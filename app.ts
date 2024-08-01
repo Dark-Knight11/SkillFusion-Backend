@@ -7,6 +7,11 @@ import multer from "multer";
 dotenv.config();
 
 const app: Express = express();
+app.use(express.json());
+
+// Middleware to parse URL-encoded bodies
+app.use(express.urlencoded({ extended: true }));
+
 const port = process.env.PORT || 3000;
 
 const genAI = new GoogleGenerativeAI(process.env.API_KEY ?? "");
@@ -20,7 +25,7 @@ const generateText = async (prompt: string) => {
   return text;
 };
 
-const generatePrompt = async () => {
+const generatePrompt = async (role: string, description: string) => {
   const resume = await new SimpleDirectoryReader().loadData({
     directoryPath: "./resume",
   });
@@ -35,8 +40,9 @@ const generatePrompt = async () => {
   **Resume Details:**
   ${resume[0].text}
 
-  **Job Description:**
-  ${jd[0].text}
+  **Job requirement:**
+  Job Role: ${role}
+  Job Description: ${description}
 
   **Output Format:**
   {
@@ -59,12 +65,7 @@ const generatePrompt = async () => {
 
 const storage = multer.diskStorage({
   destination: (req: any, _file: any, cb: any) => {
-    if (req.url === "/resume") {
       cb(null, "resume/");
-    }
-    if (req.url === "/jd") {
-      cb(null, "jd/");
-    }
   },
   filename: (req: any, file: any, cb: any) => {
     cb(null, Date.now() + "-" + file.originalname);
@@ -83,22 +84,13 @@ app.post("/resume", uploadFile.single("file"), (req, res) => {
   });
 });
 
-app.post("/jd", uploadFile.single("file"), (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ error: "No file uploaded" });
-  }
-  res.json({
-    message: "File uploaded successfully",
-    filename: req.file.filename,
-  });
-});
-
 app.get("/", (req: Request, res: Response) => {
   res.send("Express + TypeScript Server");
 });
 
-app.get("/course", async (req: Request, res: Response) => {
-  const prompt = await generatePrompt();
+app.post("/course", async (req, res) => {
+  const {role, description} = req.body
+  const prompt = await generatePrompt(role, description);
   const result = await generateText(prompt);
   res.json({
     result: JSON.parse(
