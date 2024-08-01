@@ -1,0 +1,7 @@
+/jd/*
+/resume/*
+
+/dist/* 
+
+/node_modules/*
+/.env
